@@ -1,0 +1,5 @@
+matplotlib
+wavio
+librosa
+h5py
+soundfile
