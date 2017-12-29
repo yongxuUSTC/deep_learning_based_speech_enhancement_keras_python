@@ -238,18 +238,68 @@ def pack_features(args):
     workspace = args.workspace
     data_type = args.data_type
     snr = args.snr
-    n_concat = args.n_concat
-    n_hop = args.n_hop
     
-    x_all = []  # (n_segs, n_concat, n_freq)
-    y_all = []  # (n_segs, n_freq)
-    
-    cnt = 0
     t1 = time.time()
     
     # Load all features. 
     feat_dir = os.path.join(workspace, "features", "spectrogram", data_type, "%ddb" % int(snr))
     names = os.listdir(feat_dir)
+
+    def split_func(l, n):
+        """Split list l averagely to n lists.
+        """
+        ls = [ [] for _ in range(n) ]
+        count = 0
+        for i in range(len(l)):
+            shard = count % n
+            ls[shard].append(l[i])
+            count += 1
+        return ls
+
+    names_list = split_func(names, len(names) // 1000 + 1)  # Deal with 1000 files each time
+    out_path = os.path.join(workspace, "packed_features", "spectrogram", data_type, "%ddb" % int(snr), "data.h5")
+    cnt, cnt_files = 0, 0
+    for (i, nas) in enumerate(names_list):
+        x_all, y_all = load_feature_from_files(nas, feat_dir, args)
+        assert len(x_all) == len(y_all)
+        max_x_shape, max_y_shape = map(lambda n: (None,) + n.shape[1:], [x_all, y_all])
+        if i == 0:
+            # Write out data to .h5 file.
+            create_folder(os.path.dirname(out_path))
+            hf = h5py.File(out_path, 'w')
+            x_dataset = hf.create_dataset('x', x_all.shape,
+                    maxshape=max_x_shape, dtype='float32')
+            y_dataset = hf.create_dataset('y', y_all.shape,
+                    maxshape=max_y_shape, dtype='float32')
+        else:
+            hf = h5py.File(out_path, 'a')
+            x_dataset, y_dataset = hf['x'], hf['y']
+
+        new_cnt = cnt + len(x_all)
+
+        x_dataset.resize((new_cnt,) + x_all.shape[1:])
+        y_dataset.resize((new_cnt,) + y_all.shape[1:])
+
+        x_dataset[cnt:new_cnt] = x_all
+        y_dataset[cnt:new_cnt] = y_all
+
+        cnt = new_cnt
+        cnt_files += len(nas)
+        print("{} files processed".format(cnt_files))
+
+        hf.close()
+
+    print("Write out to %s" % out_path)
+    print("Pack features finished! %s s" % (time.time() - t1,))
+
+
+def load_feature_from_files(names, feat_dir, args):
+    n_concat = args.n_concat
+    n_hop = args.n_hop
+
+    x_all = []  # (n_segs, n_concat, n_freq)
+    y_all = []  # (n_segs, n_freq)
+
     for na in names:
         # Load feature. 
         feat_path = os.path.join(feat_dir, na)
@@ -270,33 +320,20 @@ def pack_features(args):
         speech_x_3d = mat_2d_to_3d(speech_x, agg_num=n_concat, hop=n_hop)
         y = speech_x_3d[:, (n_concat - 1) / 2, :]
         y_all.append(y)
-    
-        # Print. 
-        if cnt % 100 == 0:
-            print(cnt)
-            
-        # if cnt == 3: break
-        cnt += 1
-        
+
     x_all = np.concatenate(x_all, axis=0)   # (n_segs, n_concat, n_freq)
     y_all = np.concatenate(y_all, axis=0)   # (n_segs, n_freq)
     
     x_all = log_sp(x_all).astype(np.float32)
     y_all = log_sp(y_all).astype(np.float32)
-    
-    # Write out data to .h5 file. 
-    out_path = os.path.join(workspace, "packed_features", "spectrogram", data_type, "%ddb" % int(snr), "data.h5")
-    create_folder(os.path.dirname(out_path))
-    with h5py.File(out_path, 'w') as hf:
-        hf.create_dataset('x', data=x_all)
-        hf.create_dataset('y', data=y_all)
-    
-    print("Write out to %s" % out_path)
-    print("Pack features finished! %s s" % (time.time() - t1,))
-    
+
+    return x_all, y_all
+
+
 def log_sp(x):
     return np.log(x + 1e-08)
-    
+
+
 def mat_2d_to_3d(X, agg_num, hop):
     # pad to at least one block
     len_X, n_in = X.shape
