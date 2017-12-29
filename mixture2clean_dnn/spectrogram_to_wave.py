@@ -1,36 +1,13 @@
+"""
+Summary:  Recover spectrogram to wave. 
+Author:   Qiuqiang Kong
+Created:  2017.09
+Modified: -
+"""
 import numpy as np
 import numpy
 import decimal
     
-def real_to_complex(pd_abs_x, gt_x):
-    """Recover pred spectrogram's phase from ground truth's phase. 
-    
-    Args:
-      pd_abs_x: 2d array, (n_time, n_freq)
-      gt_x: 2d complex array, (n_time, n_freq)
-      
-    Returns:
-      2d complex array, (n_time, n_freq)
-    """
-    theta = np.angle(gt_x)
-    cmplx = pd_abs_x * np.exp(1j * theta)
-    return cmplx
-    
-# recover whole spectrogram from half spectrogram
-def half_to_whole(x):
-    return np.concatenate((x, np.fliplr(np.conj(x[:, 1:-1]))), axis=1)
-
-# recover wav from whole spectrogram
-def ifft_to_wav(x):
-    return np.real(np.fft.ifft(x))
-
-def pad_or_trunc(s, wav_len):
-    if len(s) >= wav_len:
-        s = s[0 : wav_len]
-    else:
-        s = np.concatenate((s, np.zeros(wav_len - len(s))))
-    return s
-
 def recover_wav(pd_abs_x, gt_x, n_overlap, winfunc, wav_len=None):
     """Recover wave from spectrogram. 
     If you are using scipy.signal.spectrogram, you may need to multipy a scaler
@@ -57,8 +34,39 @@ def recover_wav(pd_abs_x, gt_x, n_overlap, winfunc, wav_len=None):
         s = pad_or_trunc(s, wav_len)
     return s
     
-# recover ground truth wav
+def real_to_complex(pd_abs_x, gt_x):
+    """Recover pred spectrogram's phase from ground truth's phase. 
+    
+    Args:
+      pd_abs_x: 2d array, (n_time, n_freq)
+      gt_x: 2d complex array, (n_time, n_freq)
+      
+    Returns:
+      2d complex array, (n_time, n_freq)
+    """
+    theta = np.angle(gt_x)
+    cmplx = pd_abs_x * np.exp(1j * theta)
+    return cmplx
+    
+def half_to_whole(x):
+    """Recover whole spectrogram from half spectrogram. 
+    """
+    return np.concatenate((x, np.fliplr(np.conj(x[:, 1:-1]))), axis=1)
+
+def ifft_to_wav(x):
+    """Recover wav from whole spectrogram"""
+    return np.real(np.fft.ifft(x))
+
+def pad_or_trunc(s, wav_len):
+    if len(s) >= wav_len:
+        s = s[0 : wav_len]
+    else:
+        s = np.concatenate((s, np.zeros(wav_len - len(s))))
+    return s
+
 def recover_gt_wav(x, n_overlap, winfunc, wav_len=None):
+    """Recover ground truth wav. 
+    """
     x = half_to_whole(x)
     frames = ifft_to_wav(x)
     (n_frames, n_window) = frames.shape
@@ -67,11 +75,11 @@ def recover_gt_wav(x, n_overlap, winfunc, wav_len=None):
     if wav_len:
         s = pad_or_trunc(s, wav_len)
     return s
-    
-    
-### From https://github.com/jameslyons/python_speech_features
+
 def deframesig(frames,siglen,frame_len,frame_step,winfunc=lambda x:numpy.ones((x,))):    
     """Does overlap-add procedure to undo the action of framesig.
+    Ref: From https://github.com/jameslyons/python_speech_features
+    
     :param frames: the array of frames.
     :param siglen: the length of the desired signal, use 0 if unknown. Output will be truncated to siglen samples.
     :param frame_len: length of each frame measured in samples.
