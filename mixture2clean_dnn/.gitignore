@@ -1,0 +1,11 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Project specific files
+metadata
+workspace
+_pesq_itu_results.txt
+_pesq_results.txt
+# PESQ executable, license prohibits upload
+pesq
