@@ -40,11 +40,11 @@ python utils/prepare_data.py pack_features --workspace=$WORKSPACE --data_type=te
 python utils/prepare_data.py write_out_scaler --workspace=$WORKSPACE --data_type=train --snr=$TR_SNR
 
 # Train
-CUDA_VISIBLE_DEVICES=3 python $BACKEND/main.py train --workspace=$WORKSPACE --tr_snr=$TR_SNR --te_snr=$TE_SNR
+python $BACKEND/main.py train --workspace=$WORKSPACE --tr_snr=$TR_SNR --te_snr=$TE_SNR
 
 # Inference
 ITERATION=10000
-CUDA_VISIBLE_DEVICES=3 python $BACKEND/main.py inference --workspace=$WORKSPACE --tr_snr=$TR_SNR --te_snr=$TE_SNR --iteration=$ITERATION --n_concat=$N_CONCAT
+python $BACKEND/main.py inference --workspace=$WORKSPACE --tr_snr=$TR_SNR --te_snr=$TE_SNR --iteration=$ITERATION --n_concat=$N_CONCAT
 
 # Plot training stat
 # python evaluate.py plot_training_stat --workspace=$WORKSPACE --tr_snr=$TR_SNR --bgn_iter=0 --fin_iter=10001 --interval_iter=1000
